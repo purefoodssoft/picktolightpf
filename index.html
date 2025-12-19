@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purefoods Pick to Light</title>
+    
+    <!-- React & ReactDOM (Core) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel (JSX Compiler) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS (Styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #1a202c;
+        }
+
+        /* Light Glow Effects */
+        .light-off {
+            background-color: #2d3748;
+            color: #718096;
+            border: 2px solid #4a5568;
+        }
+
+        .light-on {
+            background-color: #48bb78; /* Green-500 */
+            color: #ffffff;
+            border: 2px solid #2f855a;
+            box-shadow: 0 0 15px #48bb78, 0 0 30px #48bb78 inset;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .light-completed {
+            background-color: #4299e1; /* Blue-500 */
+            color: white;
+            opacity: 0.5;
+            box-shadow: none;
+        }
+
+        .scan-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #2d3748; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4a5568; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #718096; 
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+        .animate-scale-in {
+            animation: scaleIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- Internal Icons (SVG Components) ---
+        const Icons = {
+            Package: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>
+            ),
+            ShoppingCart: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+            ),
+            Scan: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+            ),
+            RotateCcw: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            ),
+            CheckCircle: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            ),
+            X: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            )
+        };
+
+        const { Package, ShoppingCart, Scan, RotateCcw, CheckCircle, X } = Icons;
+
+        // --- Mock Data Generators ---
+        const generateProducts = () => {
+            const products = [];
+            for (let i = 1; i <= 50; i++) {
+                const id = `P${i.toString().padStart(3, '0')}`;
+                products.push({
+                    id: id,
+                    name: `สินค้าชนิดที่ ${i}`,
+                    barcode: `885000000${i.toString().padStart(3, '0')}`,
+                    location: `B-${Math.ceil(i/10)}-${(i-1)%10 + 1}`
+                });
+            }
+            return products;
+        };
+
+        const App = () => {
+            // --- State ---
+            const [products] = useState(generateProducts());
+            const [orders, setOrders] = useState([]);
+            const [activeOrder, setActiveOrder] = useState(null);
+            const [pickingStatus, setPickingStatus] = useState({});
+            const [scanInput, setScanInput] = useState("");
+            const [logs, setLogs] = useState([{ time: new Date().toLocaleTimeString(), msg: "ระบบพร้อมทำงาน...", type: 'info' }]);
+            
+            // New State for Completion Modal
+            const [completionModal, setCompletionModal] = useState(null); // stores orderId if complete
+
+            const inputRef = useRef(null);
+
+            // --- Helpers ---
+            const addLog = (msg, type = 'info') => {
+                setLogs(prev => [{ time: new Date().toLocaleTimeString(), msg, type }, ...prev].slice(0, 10));
+            };
+
+            // --- Handlers ---
+            const loadDemoData = () => {
+                const demoOrders = [
+                    {
+                        orderId: "ORD-2023-001",
+                        items: [
+                            { productId: "P001", qty: 2 },
+                            { productId: "P005", qty: 1 },
+                            { productId: "P023", qty: 5 },
+                            { productId: "P048", qty: 3 }
+                        ]
+                    },
+                    {
+                        orderId: "ORD-2023-002",
+                        items: [
+                            { productId: "P010", qty: 3 },
+                            { productId: "P011", qty: 5 }
+                        ]
+                    }
+                ];
+                setOrders(demoOrders);
+                addLog(`โหลดข้อมูลสำเร็จ: ${demoOrders.length} ออเดอร์ (Demo)`, 'success');
+                setTimeout(() => alert("โหลดข้อมูล Demo เรียบร้อย! \nลองสแกน Order ID: ORD-2023-001"), 100);
+                if(inputRef.current) inputRef.current.focus();
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const text = evt.target.result;
+                    const lines = text.split('\n');
+                    const newOrdersMap = {};
+
+                    lines.forEach((line, index) => {
+                        if (index === 0) return;
+                        const [orderId, productId, qty] = line.split(',').map(s => s ? s.trim() : '');
+                        if (orderId && productId && qty) {
+                            if (!newOrdersMap[orderId]) {
+                                newOrdersMap[orderId] = { orderId, items: [] };
+                            }
+                            newOrdersMap[orderId].items.push({ productId, qty: parseInt(qty) || 0 });
+                        }
+                    });
+
+                    const newOrders = Object.values(newOrdersMap);
+                    setOrders(newOrders);
+                    addLog(`นำเข้าไฟล์สำเร็จ: ${newOrders.length} ออเดอร์`, 'success');
+                };
+                reader.readAsText(file);
+            };
+
+            const handleScanSubmit = (e) => {
+                e.preventDefault();
+                const code = scanInput.trim();
+                if (!code) return;
+
+                processScan(code);
+                setScanInput("");
+            };
+
+            const processScan = (code) => {
+                // Case A: No Active Order -> Looking for Order ID
+                if (!activeOrder) {
+                    const foundOrder = orders.find(o => o.orderId === code);
+                    if (foundOrder) {
+                        setActiveOrder(foundOrder);
+                        
+                        const status = {};
+                        foundOrder.items.forEach(item => {
+                            status[item.productId] = item.qty;
+                        });
+                        setPickingStatus(status);
+                        
+                        addLog(`เริ่มทำงานออเดอร์: ${foundOrder.orderId}`, 'success');
+                    } else {
+                        if (products.some(p => p.barcode === code)) {
+                            addLog(`กรุณาสแกนใบ Order ก่อนสแกนสินค้า`, 'warning');
+                        } else {
+                            addLog(`ไม่พบ Order ID: ${code}`, 'error');
+                        }
+                    }
+                    return;
+                }
+
+                // Case B: Active Order -> Picking Products
+                const product = products.find(p => p.barcode === code);
+                
+                if (product) {
+                    if (pickingStatus[product.id] !== undefined) {
+                        const remaining = pickingStatus[product.id];
+                        
+                        if (remaining > 0) {
+                            const newStatus = { ...pickingStatus, [product.id]: remaining - 1 };
+                            setPickingStatus(newStatus);
+                            addLog(`หยิบ ${product.name} สำเร็จ (เหลือ ${remaining - 1})`, 'success');
+
+                            const allDone = Object.values(newStatus).every(q => q === 0);
+                            if (allDone) {
+                                // Trigger Completion Modal instead of Alert
+                                setCompletionModal(activeOrder.orderId);
+                                setActiveOrder(null);
+                                setPickingStatus({});
+                                addLog(`ปิดงานออเดอร์ ${activeOrder.orderId} แล้ว`, 'info');
+                            }
+                        } else {
+                            addLog(`สินค้า ${product.name} ครบแล้ว! ไม่ต้องหยิบเพิ่ม`, 'warning');
+                        }
+                    } else {
+                        addLog(`สินค้า ${product.name} ไม่อยู่ในออเดอร์นี้!`, 'error');
+                    }
+                } else if (code === activeOrder.orderId) {
+                    addLog(`กำลังทำงานออเดอร์นี้อยู่แล้ว`, 'info');
+                } else if (orders.some(o => o.orderId === code)) {
+                    addLog(`กรุณาทำออเดอร์ปัจจุบันให้เสร็จก่อน`, 'warning');
+                } else {
+                     addLog(`ไม่พบรหัสสินค้า: ${code}`, 'error');
+                }
+            };
+
+            const progress = useMemo(() => {
+                if (!activeOrder) return 0;
+                const totalQty = activeOrder.items.reduce((acc, item) => acc + item.qty, 0);
+                const remainingQty = Object.values(pickingStatus).reduce((acc, q) => acc + q, 0);
+                return totalQty === 0 ? 100 : Math.round(((totalQty - remainingQty) / totalQty) * 100);
+            }, [activeOrder, pickingStatus]);
+
+            // Handle Modal Close
+            const closeCompletionModal = () => {
+                setCompletionModal(null);
+                setTimeout(() => inputRef.current?.focus(), 100);
+            };
+
+            return (
+                <div className="min-h-screen text-white flex flex-col relative">
+                    
+                    {/* Completion Modal Overlay */}
+                    {completionModal && (
+                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-sm">
+                            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border-2 border-green-500 flex flex-col items-center max-w-md w-full mx-4 text-center transform animate-scale-in relative">
+                                <button 
+                                    onClick={closeCompletionModal}
+                                    className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                                >
+                                    <X size={24} />
+                                </button>
+                                <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mb-6 ring-4 ring-green-500/10">
+                                    <CheckCircle size={64} className="text-green-500 drop-shadow-lg" />
+                                </div>
+                                <h2 className="text-3xl font-bold text-white mb-2">Order Complete!</h2>
+                                <h3 className="text-xl text-green-400 font-mono font-bold mb-4">{completionModal}</h3>
+                                <p className="text-gray-400 mb-8 text-lg">
+                                    หยิบสินค้าครบถ้วนทุกรายการแล้ว<br/>พร้อมสำหรับการบรรจุลงลัง
+                                </p>
+                                <button 
+                                    onClick={closeCompletionModal}
+                                    className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 rounded-xl w-full transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    <Scan size={20} /> ตกลง / สแกนรายการถัดไป
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Header */}
+                    <header className="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-20 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <Package className="text-green-400 w-8 h-8" />
+                                <div>
+                                    <h1 className="text-2xl font-bold text-green-400">Purefoods Pick-to-Light System</h1>
+                                    <p className="text-xs text-gray-400">Inventory: 50 SKUs | Power By Paskorn</p>
+                                    <p className="text-xs text-gray-400">Exc: ORD-2023-001 </p>
+                                    <p className="text-xs text-gray-400">Exc: 885000000001 </p>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 w-full max-w-xl mx-4 relative">
+                                <form onSubmit={handleScanSubmit} className="relative">
+                                    <div className="absolute left-3 top-3 text-gray-500">
+                                        <Scan size={20} />
+                                    </div>
+                                    <input 
+                                        ref={inputRef}
+                                        type="text" 
+                                        value={scanInput}
+                                        onChange={(e) => setScanInput(e.target.value)}
+                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg py-2 pl-10 pr-4 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500 scan-input text-lg"
+                                        placeholder="สแกนใบ Order หรือ Barcode สินค้าที่นี่..."
+                                        autoFocus
+                                    />
+                                    <button type="submit" className="absolute right-2 top-2 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs text-gray-300">
+                                        ENTER
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-sm">
+                                <div className={`px-4 py-2 rounded-lg font-bold ${activeOrder ? 'bg-green-900 text-green-300 border border-green-700' : 'bg-gray-700 text-gray-400'}`}>
+                                    STATUS: {activeOrder ? `ACTIVE (${progress}%)` : 'STANDBY'}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="flex-1 p-4 md:p-6 max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-6">
+                        
+                        {/* Shelf Grid Area */}
+                        <div className="flex-1">
+                            <div className="bg-gray-800 rounded-xl p-4 shadow-xl border border-gray-700">
+                                <div className="flex justify-between items-end mb-4">
+                                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                                        <ShoppingCart size={20} /> ชั้นวางสินค้า (Shelf Layout)
+                                    </h2>
+                                    {activeOrder && (
+                                        <span className="text-green-400 animate-pulse text-sm">
+                                            กำลังหยิบ Order: {activeOrder.orderId}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-5 md:grid-cols-10 gap-2 md:gap-3">
+                                    {products.map((product) => {
+                                        const qtyToPick = pickingStatus[product.id];
+                                        const isActive = qtyToPick > 0;
+                                        const isCompleted = activeOrder && pickingStatus[product.id] === 0 && activeOrder.items.some(i => i.productId === product.id);
+                                        
+                                        return (
+                                            <div 
+                                                key={product.id}
+                                                className={`
+                                                    relative rounded-lg p-2 h-24 md:h-28 flex flex-col justify-between items-center transition-all duration-300 select-none
+                                                    ${isActive ? 'light-on' : isCompleted ? 'light-completed' : 'light-off'}
+                                                `}
+                                            >
+                                                {isActive && (
+                                                    <div className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl shadow-lg animate-bounce border-2 border-white z-20">
+                                                        {qtyToPick}
+                                                    </div>
+                                                )}
+
+                                                <div className="text-[10px] opacity-70 w-full text-center truncate">{product.location}</div>
+                                                
+                                                <div className="flex flex-col items-center">
+                                                    <div className="font-bold text-lg md:text-xl tracking-tighter">{product.id}</div>
+                                                    <div className="text-[10px] leading-tight text-center hidden md:block opacity-80">{product.name}</div>
+                                                </div>
+
+                                                <div className="text-[9px] font-mono bg-black/20 px-1 rounded truncate max-w-full">
+                                                    {product.barcode}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Control Sidebar */}
+                        <div className="w-full lg:w-80 flex flex-col gap-4">
+                            
+                            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                                <h3 className="font-semibold mb-3 text-gray-300">จัดการข้อมูล (Admin)</h3>
+                                <div className="space-y-3">
+                                    <button 
+                                        onClick={loadDemoData}
+                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded flex items-center justify-center gap-2 transition"
+                                    >
+                                        <RotateCcw size={16} /> โหลด Demo Order
+                                    </button>
+                                    
+                                    <div className="relative border-t border-gray-700 pt-3">
+                                        <label className="block text-xs text-gray-500 mb-1">หรืออัปโหลดไฟล์ CSV</label>
+                                        <input 
+                                            type="file" 
+                                            accept=".csv"
+                                            onChange={handleFileUpload}
+                                            className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-green-400 hover:file:bg-gray-600"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {activeOrder && (
+                                <div className="bg-gray-800 p-4 rounded-xl border border-green-900/50 shadow-lg flex-1">
+                                    <h3 className="font-semibold mb-2 text-green-400 flex items-center gap-2">
+                                        <CheckCircle size={16} /> รายการสินค้าที่ต้องหยิบ
+                                    </h3>
+                                    <div className="overflow-y-auto max-h-60 space-y-2 pr-1 custom-scrollbar">
+                                        {activeOrder.items.map((item, idx) => {
+                                            const remaining = pickingStatus[item.productId];
+                                            const isDone = remaining === 0;
+                                            return (
+                                                <div key={idx} className={`p-2 rounded flex justify-between items-center ${isDone ? 'bg-gray-700/50 text-gray-500 line-through' : 'bg-gray-700 text-white'}`}>
+                                                    <div>
+                                                        <div className="font-bold">{item.productId}</div>
+                                                        <div className="text-xs">{products.find(p=>p.id===item.productId)?.name}</div>
+                                                    </div>
+                                                    <div className={`font-bold text-lg ${isDone ? 'text-gray-500' : 'text-green-400'}`}>
+                                                        {remaining} <span className="text-xs font-normal text-gray-400">/ {item.qty}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-black/40 p-3 rounded-xl border border-gray-700 h-48 overflow-y-auto font-mono text-xs custom-scrollbar">
+                                {logs.map((log, i) => (
+                                    <div key={i} className={`mb-1 ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'warning' ? 'text-yellow-400' : 'text-gray-400'}`}>
+                                        <span className="opacity-50">[{log.time}]</span> {log.msg}
+                                    </div>
+                                ))}
+                            </div>
+
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
